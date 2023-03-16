@@ -3,6 +3,8 @@ name: Build Rust Binary
 
 on:
   push:
+    paths:
+      - src/**
     branches:
       - main
 

@@ -12,7 +12,16 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest]
-        arch: [x64, arm64]
+        target: ["x86_64-unknown-linux-musl", "aarch64-unknown-linux-musl", "x86_64-apple-darwin", "aarch64-apple-darwin"]
+        exclude:
+          - os: macos-latest
+            target: "x86_64-unknown-linux-musl"
+          - os: macos-latest
+            target: "aarch64-unknown-linux-musl"
+          - os: ubuntu-latest
+            target: "aarch64-apple-darwin"
+          - os: ubuntu-latest
+            target: "x86_64-apple-darwin"
     steps:
       - name: Checkout Code
         uses: actions/checkout@v2
@@ -22,35 +31,61 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - name: Install Rustup Targets
-        run: |
-          if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            if [ "${{ matrix.arch }}" == "x64" ]; then
-              rustup target add x86_64-apple-darwin
-            elif [ "${{ matrix.arch }}" == "arm64" ]; then
-              rustup target add aarch64-apple-darwin
-            fi
-          fi
       - name: Install cross
         run: cargo install cross
       - name: Build Binary
         run: |
           if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-            if [ "${{ matrix.arch }}" == "x64" ]; then
-              cross build --release --target x86_64-unknown-linux-musl --bin rulid
-            elif [ "${{ matrix.arch }}" == "arm64" ]; then
-              cross build --release --target aarch64-unknown-linux-musl --bin rulid
-            fi
+            cross build --release --target ${{ matrix.target }} --bin rulid
           fi
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            if [ "${{ matrix.arch }}" == "x64" ]; then
-              cargo build --release --target x86_64-apple-darwin --bin rulid
-            elif [ "${{ matrix.arch }}" == "arm64" ]; then
-              cargo build --release --target aarch64-apple-darwin --bin rulid
-            fi
+            rustup target add ${{ matrix.target }}
+            cargo build --release --target ${{ matrix.target }} --bin rulid
           fi
+          mv ${{ github.workspace }}/target/${{ matrix.target }}/release/rulid ${{ github.workspace }}/target/${{ matrix.target }}/release/rulid-${{ matrix.target }}
+          chmod +x ${{ github.workspace }}/target/${{ matrix.target }}/release/rulid-${{ matrix.target }}
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
-          name: rulid
-          path: target/${{ matrix.os }}-${{ matrix.arch }}/release/rulid
+          name: rulid-${{ matrix.target }}
+          path: ${{ github.workspace }}/target/${{ matrix.target }}/release/rulid-${{ matrix.target }}
+
+  release:
+    needs: build
+    permissions: write-all
+    runs-on: ubuntu-latest
+    steps:
+      # Log in to gh using the GitHub token
+      - name: Log in to gh
+        uses: actions/checkout@v2
+      # Create release
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: Prerelease v${{ github.run_number }}-snapshot
+          tag_name: v${{ github.run_number }}-snapshot
+          prerelease: true
+
+  upload:
+    needs: release
+    permissions: write-all
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: ["x86_64-unknown-linux-musl", "aarch64-unknown-linux-musl", "x86_64-apple-darwin", "aarch64-apple-darwin"]
+    steps:
+      # Log in to gh using the GitHub token
+      - name: Log in to gh
+        uses: actions/checkout@v2
+      # Download release assets from artifacts
+      - name: Download release assets
+        uses: actions/download-artifact@v3
+        with:
+          path: ${{ github.workspace }}/target
+      # Upload release assets
+      - name: Upload release assets
+        run: |
+          gh release upload "v${{ github.run_number }}-snapshot" ${{ github.workspace }}/target/rulid-${{ matrix.target }}/rulid-${{ matrix.target }} --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

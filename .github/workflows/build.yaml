@@ -5,6 +5,8 @@ on:
   push:
     paths:
       - src/**
+      - Cargo.lock
+      - Cargo.toml
     branches:
       - main
 

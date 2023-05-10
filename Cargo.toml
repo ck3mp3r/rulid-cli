@@ -1,8 +1,10 @@
 [package]
 name = "rulid"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 author = "Christian Kemper"
+homepage = "https://github.com/ck3mper/rulid-cli"
+description = "A CLI tool to generate ULIDs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

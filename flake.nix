@@ -37,7 +37,7 @@
           defaultPackage = rulid;
 
           overlay = final: prev: {
-            rulid = self.packages.${system}.rulid;
+            inherit rulid;
           };
 
           devShell =

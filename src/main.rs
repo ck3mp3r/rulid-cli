@@ -14,6 +14,10 @@ struct Args {
     /// Type of output to print: string, json, yaml
     #[arg(short, long, default_value = "string")]
     output_format: String,
+
+    /// Output in lower case
+    #[arg(short, long, default_value_t = false)]
+    lower: bool,
 }
 
 fn main() {
@@ -22,7 +26,10 @@ fn main() {
     let mut ulids: Vec<String> = Vec::new();
 
     for _ in 0..args.count {
-        ulids.push(Ulid::new().to_string());
+        match args.lower {
+            true =>  ulids.push(Ulid::new().to_string().to_lowercase()),
+            false => ulids.push(Ulid::new().to_string()),
+        }
     }
 
     match args.output_format.as_str() {
